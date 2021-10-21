@@ -24,6 +24,11 @@ from transformers import Trainer
 
 from process import *
 from model import *
+from protoqa_evaluator.data_processing import load_question_answer_clusters_from_jsonl
+from protoqa_evaluator.evaluation import multiple_evals
+from protoqa_evaluator.common_evaluations import exact_match_all_eval_funcs
+answers_dict = {}
+
 # if __name__ == "__main__":
 
 
@@ -48,11 +53,11 @@ def train(args):
     tokenizer.pad_token = tokenizer.eos_token
     train_dataset = load_dataset(args, tokenizer, "train")
     train_sampler = RandomSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, sampler = train_sampler, batch_size = args.train_batch_size)
+    train_dataloader = DataLoader(train_dataset, sampler = train_sampler, batch_size = args.per_device_train_batch_size)
     if args.vaild_during_training:
         dev_dataset = load_dataset(args, tokenizer, "dev")
         dev_sampler = RandomSampler(dev_dataset)
-        dev_dataloader = DataLoader(dev_dataset, sampler = dev_sampler, batch_size = args.eval_batch_size)
+        dev_dataloader = DataLoader(dev_dataset, sampler = dev_sampler, batch_size = args.per_device_eval_batch_size)
     use_trainer= True
 
     # load model
@@ -90,10 +95,12 @@ def eval(args,model=None):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    pred_path = os.path.join(output_dir, "predictions.jsonl")
+    # pred_path = os.path.join(output_dir, "predictions.jsonl")
     predictions = []
     if not model:
-        model = GPT2LMHeadModel.from_pretrained("gpt2")
+        check_point_path = os.path.join(output_dir,args.check_point_name)
+        pred_path = os.path.join(check_point_path, "predictions.jsonl")
+        model = GPT2LMHeadModel.from_pretrained(check_point_path)
         device = torch.device("cuda:0")
         model = model.to(device)
     tokenizer.pad_token = tokenizer.eos_token
@@ -122,6 +129,13 @@ def eval(args,model=None):
         for p in predictions:
             json.dump(p, f, ensure_ascii = False)
             f.write('\n')
+    with open(pred_path,'r') as f:
+        for line in f:
+            item = json.loads(line)
+            for key in item.keys():
+                answers_dict[key] = item[key]
+    question_data = load_question_answer_clusters_from_jsonl(os.path.join(args.data_dir,args.test_file))
+    res = multiple_evals(exact_match_all_eval_funcs, question_data, answers_dict=answers_dict)
 
 # def score()
 if __name__ == "__main__":
@@ -134,6 +148,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_file",type = str,default = "train/train.jsonl")
     parser.add_argument("--output_dir",type = str,default = "model")
     parser.add_argument("--save_model_name",type = str,default = "GPT2-baseline")
+    parser.add_argument("--check_point_name", type = str, help = "checkpoint for eval")
     parser.add_argument("--tokenizer_name_or_path",type = str,default = "bert-base-cased")
     parser.add_argument("--origin_model",type = str,default = "gpt2", help = "origin model dir for training")
 

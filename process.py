@@ -33,7 +33,7 @@ class ProtoQADataset(Dataset):
         return item
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.idxs)
 
 class ProtoQAProcessor():
     def read_example(self, file_name, is_training):

@@ -29,6 +29,7 @@ from model import *
 
 def train(args):
 # set up output_dir
+    print(args.data_dir)
     output_dir = os.path.join(args.output_dir,args.save_model_name)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -60,15 +61,16 @@ def train(args):
     # train !
     # if use_trainer:
     training_args = TrainingArguments(
-    output_dir = "/content/output/",
-    per_device_train_batch_size = 24,
-    per_device_eval_batch_size = 32,
+    output_dir = output_dir,
+    per_device_train_batch_size = args.per_device_train_batch_size,
+    per_device_eval_batch_size = args.per_device_eval_batch_size,
     learning_rate = args.learning_rate,
-    num_train_epochs = 1,
+    num_train_epochs = args.num_train_epochs,
     fp16 = True,
     log_level = "info",
-    logging_steps=100,
-    evaluation_strategy="epoch"
+    logging_steps=args.logging_steps,
+    evaluation_strategy="epoch",
+    save_strategy = "epoch",
     )
 
     trainer = Trainer(
@@ -146,10 +148,10 @@ if __name__ == "__main__":
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--learning_rate", default=2e-5, type=float, help="The initial learning rate for Adam.")
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
-    parser.add_argument("--train_batch_size", default=15, type=int, help="Batch size for training.")
-    parser.add_argument("--eval_batch_size", default=6, type=int, help="Batch size for eval.")
+    parser.add_argument("--per_device_train_batch_size", default=15, type=int, help="Batch size for training.")
+    parser.add_argument("--per_device_eval_batch_size", default=6, type=int, help="Batch size for eval.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument("--logging_step", default = 100, type = int, help = "steps for logging")
+    parser.add_argument("--logging_steps", default = 100, type = int, help = "steps for logging")
     # settings
     parser.add_argument("--n_gpu",type=int , default = 1)
     parser.add_argument("--fp16",action = "store_true")
@@ -160,6 +162,9 @@ if __name__ == "__main__":
     parser.add_argument("--dev",action = "store_true")
     parser.add_argument("--vaild_during_training",action = "store_true",default = True)
 
-    args = parser.parse_args(args = [])
+    args = parser.parse_args()
+    if args.test:
     # train(args)
-    eval(args)
+        eval(args)
+    else:
+        train(args)

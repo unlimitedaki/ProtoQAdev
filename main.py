@@ -16,6 +16,7 @@ from tqdm import trange
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.cuda.amp import autocast as autocast
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset, DistributedSampler
 import transformers
 from transformers import GPT2Tokenizer
@@ -128,7 +129,8 @@ def sample_sequence(model, length, context, num_samples=1, temperature=1, top_k=
         for _ in range(length):
 
             inputs = {'input_ids': generated}
-            outputs = model(**inputs)  # Note: we could also use 'past' with GPT-2/Transfo-XL/XLNet/CTRL (cached hidden-states)
+            with autocast():
+                outputs = model(**inputs)  # Note: we could also use 'past' with GPT-2/Transfo-XL/XLNet/CTRL (cached hidden-states)
             next_token_logits = outputs[0][:, -1, :] / (temperature if temperature > 0 else 1.)
 
             # repetition penalty from CTRL (https://arxiv.org/abs/1909.05858)
@@ -189,7 +191,7 @@ def eval(args,model=None):
             generated = sample_sequence(
                 model=model,
                 context=input,
-                num_samples=20,
+                num_samples=100,
                 length=10,
                 temperature=0.69,
                 top_k=0,
@@ -205,15 +207,19 @@ def eval(args,model=None):
             generated = generated[:, 40:].tolist()
             res = {example['idx']:[]}
             for o in generated:
-                text = tokenizer.decode(o, clean_up_tokenization_spaces=True)
-                text = text[: text.find(args.stop_token)+1 if args.stop_token else None]
-                text = text.strip()
-                if text.endswith('.'):
-                    text = text[:-1]
+                try:
+                    text = tokenizer.decode(o, clean_up_tokenization_spaces=True)
+                    text = text[: text.find(args.stop_token)+1 if args.stop_token else None]
+                    text = text.strip()
+                    if text.endswith('.'):
+                        text = text[:-1]
                 # print(text)
-                nostop_text_list = [tok for tok in text.split(' ') if tok not in en_stopwords]
-                nostop_text = " ".join(nostop_text_list)
-                res[example['idx']].append(nostop_text)
+                    nostop_text_list = [tok for tok in text.split(' ') if tok not in en_stopwords]
+                    nostop_text = " ".join(nostop_text_list)
+                    res[example['idx']].append(nostop_text)
+                except Exception as ex:
+                    print(res)
+                    continue
                 # print(nostop_text)
                 # if qidx[single_question_idx] not in prediced_dev:
                 #     prediced_dev[qidx[single_question_idx]] = [nostop_text]

@@ -178,8 +178,9 @@ def load_dataset(args, tokenizer, mode):
     # load processed cache
     if os.path.exists(cache_path):
         with open(cache_path, 'rb') as f:
-            dataset = torch.load(f)
-        return dataset
+            cache = torch.load(f)
+            examples, dataset = cache["examples"], cache["dataset"]
+        return examples,dataset
         # torch.load(f)
     if mode == "train":
         file_path = os.path.join(args.data_dir, args.train_file)
@@ -193,7 +194,8 @@ def load_dataset(args, tokenizer, mode):
 
     examples = processor.read_example(file_path, is_training)
     dataset = processor.convert_examples_to_features(tokenizer, examples, args.max_q_len, args.max_a_len, is_training)
-    torch.save(dataset,cache_path)
-    return dataset
+    cache = {"examples":examples, "dataset":dataset}
+    torch.save(cache,cache_path)
+    return examples, dataset
 
         

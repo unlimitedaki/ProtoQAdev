@@ -54,11 +54,11 @@ def train(args):
     # tokenizer = select_tokenizer(args)
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
-    train_dataset = load_dataset(args, tokenizer, "train")
+    train_examples, train_dataset = load_dataset(args, tokenizer, "train")
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler = train_sampler, batch_size = args.per_device_train_batch_size)
     if args.vaild_during_training:
-        dev_dataset = load_dataset(args, tokenizer, "dev")
+        dev_examples, dev_dataset = load_dataset(args, tokenizer, "dev")
         dev_sampler = RandomSampler(dev_dataset)
         dev_dataloader = DataLoader(dev_dataset, sampler = dev_sampler, batch_size = args.per_device_eval_batch_size)
     use_trainer= True
@@ -151,7 +151,7 @@ def eval(args,model=None):
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
     en_stopwords = set(stopwords.words('english'))
-    dev_dataset = load_dataset(args, tokenizer, "test")
+    dev_examples, dev_dataset = load_dataset(args, tokenizer, "test")
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -165,7 +165,7 @@ def eval(args,model=None):
         model = model.to(device)
     tokenizer.pad_token = tokenizer.eos_token
     use_generate = False
-    for example in tqdm(dev_dataset, total= len(dev_dataset)):
+    for example in tqdm(dev_examples, total= len(dev_examples)):
         
         
         if use_generate:
@@ -186,12 +186,15 @@ def eval(args,model=None):
                 answer = tokenizer.decode(answer.tolist(),clean_up_tokenization_spaces=True)
                 res[example['idx']].append(answer)
         else:
-            input = example["input_ids"][:args.max_q_len,].tolist()
-            input = torch.tensor(input).to(device)
+            # input = example["input_ids"][:args.max_q_len,].tolist()
+            # input = torch.tensor(input).to(device)
+            context_tokens = tokenizer.encode(example.question, add_special_tokens=False)
+            
+            context_tokens = torch.tensor(context_tokens, dtype=torch.long, device=device)
             generated = sample_sequence(
                 model=model,
-                context=input,
-                num_samples=100,
+                context=context_tokens,
+                num_samples=300,
                 length=10,
                 temperature=0.69,
                 top_k=0,
@@ -205,7 +208,7 @@ def eval(args,model=None):
             )
             
             generated = generated[:, 40:].tolist()
-            res = {example['idx']:[]}
+            res = {example.idx:[]}
             for o in generated:
                 try:
                     text = tokenizer.decode(o, clean_up_tokenization_spaces=True)
@@ -216,7 +219,7 @@ def eval(args,model=None):
                 # print(text)
                     nostop_text_list = [tok for tok in text.split(' ') if tok not in en_stopwords]
                     nostop_text = " ".join(nostop_text_list)
-                    res[example['idx']].append(nostop_text)
+                    res[example.idx].append(nostop_text)
                 except Exception as ex:
                     print(res)
                     continue

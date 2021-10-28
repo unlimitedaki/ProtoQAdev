@@ -161,7 +161,7 @@ def eval(args,model=None):
         check_point_path = os.path.join(output_dir,args.check_point_name)
         pred_path = os.path.join(check_point_path, "predictions.jsonl")
         model = GPT2LMHeadModel.from_pretrained(check_point_path)
-    else：
+    else:
         pred_path = os.path.join(output_dir, "predictions.jsonl")
     device = torch.device("cuda:0")
     model = model.to(device)

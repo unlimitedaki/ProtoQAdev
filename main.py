@@ -69,25 +69,25 @@ def train(args):
     # train !
     # if use_trainer:
     training_args = TrainingArguments(
-    output_dir = output_dir,
-    per_device_train_batch_size = args.per_device_train_batch_size,
-    per_device_eval_batch_size = args.per_device_eval_batch_size,
-    learning_rate = args.learning_rate,
-    num_train_epochs = args.num_train_epochs,
-    fp16 = True,
-    log_level = "info",
-    logging_steps=args.logging_steps,
-    evaluation_strategy="epoch",
-    save_strategy = "epoch",
+        output_dir = output_dir,
+        per_device_train_batch_size = args.per_device_train_batch_size,
+        per_device_eval_batch_size = args.per_device_eval_batch_size,
+        learning_rate = args.learning_rate,
+        num_train_epochs = args.num_train_epochs,
+        fp16 = True,
+        log_level = "info",
+        logging_steps=args.logging_steps,
+        save_strategy = "epoch",
     )
 
     trainer = Trainer(
-    model = model,
-    args = training_args,
-    train_dataset = train_dataset,
-    eval_dataset = dev_dataset,
+        model = model,
+        args = training_args,
+        train_dataset = train_dataset
     )
     trainer.train()
+
+    eval(args, model = model)
 
 def top_k_top_p_filtering(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')):
     """ Filter a distribution of logits using top-k and/or nucleus (top-p) filtering
@@ -155,14 +155,16 @@ def eval(args,model=None):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    # pred_path = os.path.join(output_dir, "predictions.jsonl")
+    
     predictions = []
     if not model:
         check_point_path = os.path.join(output_dir,args.check_point_name)
         pred_path = os.path.join(check_point_path, "predictions.jsonl")
         model = GPT2LMHeadModel.from_pretrained(check_point_path)
-        device = torch.device("cuda:0")
-        model = model.to(device)
+    else：
+        pred_path = os.path.join(output_dir, "predictions.jsonl")
+    device = torch.device("cuda:0")
+    model = model.to(device)
     tokenizer.pad_token = tokenizer.eos_token
     use_generate = False
     for example in tqdm(dev_examples, total= len(dev_examples)):
@@ -207,7 +209,7 @@ def eval(args,model=None):
                 device=device,
             )
             
-            generated = generated[:, 40:].tolist()
+            generated = generated[:,len(context_tokens):].tolist()
             res = {example.idx:[]}
             for o in generated:
                 try:
@@ -284,7 +286,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed",type = int,default = None,help = "freeze seed")
     parser.add_argument("--test",action = "store_true")
     parser.add_argument("--dev",action = "store_true")
-    parser.add_argument("--vaild_during_training",action = "store_true",default = True)
+    parser.add_argument("--vaild_during_training",action = "store_true",default = False)
     parser.add_argument('--stop_token', type=str, default=".",
                         help="Token at which text generation is stopped")
 

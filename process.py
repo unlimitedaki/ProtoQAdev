@@ -14,6 +14,7 @@ from functools import partial
 import torch
 
 class ProtoQAExample():
+    # each training example contains question and one of the answers
     def __init__(self,idx,question, answer):
         self.idx = idx # keep idx for evaluation
         self.question = question
